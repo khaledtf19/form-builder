@@ -33,6 +33,10 @@ class NodeItem {
   pushToChildren(node) {
     this.children.push(node);
   }
+
+  getHtmlElement() {
+    return document.createElement("div");
+  }
 }
 class SectionNode extends NodeItem {
   /**
@@ -43,20 +47,46 @@ class SectionNode extends NodeItem {
   constructor({ id }) {
     super({ id });
     this.type = "section";
+    this.id = id;
 
-    this.layouts = [" repeat(1, 1fr);", " repeat(2, 1fr);", "repeat(3, 1fr);"];
+    // TODO => Class
+    this.layouts = ["repeat(1, 1fr)", " repeat(2, 1fr)", "repeat(3, 1fr)"];
     let title = "";
 
     let withBorders = false;
     this.attr = { withBorders, title, layout: this.layouts[0] };
   }
-  getHtmlElement() {
+
+  /**
+   * @param {boolean} isEdit
+   * @param {Function} editOnClick
+   */
+  getHtmlElement(isEdit, editOnClick) {
     const section = document.createElement("section");
     section.id = this.id;
-    section.style.width = "100%";
 
-    section.style.display = "grid";
+    section.classList.add("formBuilder_section");
+    if (this.attr.withBorders) {
+      section.classList.add("withBorers");
+    }
+
+    // TODO => Class
     section.style.gridTemplateColumns = this.attr.layout;
+
+    if (isEdit) {
+      const editPoint = document.createElement("div");
+      editPoint.classList.add("formBuilder_section_editPoint");
+
+      editPoint.onclick = () => editOnClick(section.id);
+
+      section.append(editPoint);
+    }
+
+    if (this.children.length > 0) {
+      this.children.forEach((node) => {
+        section.append(node.getHtmlElement());
+      });
+    }
 
     return section;
   }
@@ -72,6 +102,7 @@ class InputNode extends NodeItem {
     super({ id });
     this.type = "input";
   }
+
   getHtmlElement() {
     const container = document.createElement("div");
     container.classList.add("input_container");
@@ -90,10 +121,11 @@ class Tree {
   /**
    * @param {HTMLElement} container
    */
-  constructor(container) {
+  constructor(container, isEdit) {
     if (!(container instanceof Element)) {
       throw new Error("Expected an Element as the form element.");
     }
+    this.isEdit = isEdit || false;
     const formElement = document.createElement("form");
     formElement.id = container.id + "Form";
 
@@ -101,6 +133,11 @@ class Tree {
     container.append(formElement);
     this.form = formElement;
     this.formId = formElement.id;
+
+    /**
+     * @type {HTMLDivElement?}
+     */
+    this.editSectionContainer = null;
 
     this.tree = {
       type: "form",
@@ -111,11 +148,13 @@ class Tree {
 
     this.initRoot();
     this.initForm();
+    this.addEditSection();
 
     const firstSection = this.handleNewSection("First");
     this.tree.children.push(firstSection);
     const secSection = this.handleNewSection("Sec");
     this.tree.children.push(secSection);
+    this.renderTree();
 
     console.log(this.getNodeWithId(this.tree, "First"));
   }
@@ -129,7 +168,8 @@ class Tree {
     this.root.style.position = "relative";
     // Create a native dialog element for sectionId input
     const sectionIdDialog = document.createElement("dialog");
-    sectionIdDialog.id = "sectionIdDialog";
+    sectionIdDialog.classList.add("formBuilder_addSectionDialog");
+    sectionIdDialog.id = this.root.id + "sectionIdDialog";
     sectionIdDialog.innerHTML = `
       <form method="dialog" style="display:flex;flex-direction:column;gap:1em;">
         <label for="sectionIdInput">Section ID:</label>
@@ -160,6 +200,7 @@ class Tree {
             this.formId,
             this.handleNewSection(sectionId)
           );
+          this.renderTree();
         }
         input.value = ""; // reset for next open
       }
@@ -188,12 +229,6 @@ class Tree {
     this.form.style.boxShadow = "0 0 10px rgba(0,0,0,0.1)";
     this.form.style.border = "1px solid #ddd";
     this.form.style.position = "relative";
-
-    // Add paper texture
-    this.form.style.backgroundImage =
-      "linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px)";
-    this.form.style.backgroundSize = "100% 2em";
-    this.form.style.backgroundPosition = "0 1em";
   }
 
   /**
@@ -225,18 +260,10 @@ class Tree {
     return section;
   }
 
-  handleChangeSectionAttr(id) {
-    const sectionNode = this.getNodeWithId(this.tree, id);
-    if (!sectionNode) {
-      return;
-    }
-    const sectionElement = document.getElementById(sectionNode.id);
-  }
-
   /**
    * @param {NodeItemType} node this is the tree
    * @param {string} id
-   * @returns {NodeItemType}
+   * @returns {NodeItemType?}
    */
   getNodeWithId(node, id) {
     if (node === null || (node.id !== id && node.children.length === 0))
@@ -254,6 +281,141 @@ class Tree {
 
   printTree(message) {
     console.log(message, "\n", this.tree);
+  }
+
+  addEditSection() {
+    const container = document.createElement("div");
+    container.id = this.root.id + "SectionEdit";
+    container.classList.add("formBuilder_sectionEdit_container");
+    container.dataset.isOpen = "false";
+    const stringBody = `<div class="formBuilder_sectionEdit">
+    <div class="formBuilder_sectionEdit_header"><p class="formBuilder_sectionEdit_header_id"></p></div>
+    <div class="formBuilder_sectionEdit_body"></div>
+    <div class="formBuilder_sectionEdit_btns"><button class="formBuilder_sectionEdit_btns_close">Close</button></div>
+    </div>`;
+    container.innerHTML = stringBody;
+    container.querySelector(".formBuilder_sectionEdit_btns_close").onclick =
+      () => {
+        container.dataset.isOpen = "false";
+      };
+
+    this.root.append(container);
+    this.editSectionContainer = container;
+  }
+
+  openEditSection(id) {
+    const sectionNode = this.getNodeWithId(this.tree, id);
+
+    if (!sectionNode) {
+      throw new Error("This Section Not found");
+    }
+
+    // set id
+    this.editSectionContainer.querySelector(
+      ".formBuilder_sectionEdit_header_id"
+    ).innerHTML = sectionNode.id;
+
+    const body = this.editSectionContainer.querySelector(
+      ".formBuilder_sectionEdit_body"
+    );
+    body.innerHTML = "";
+
+    body?.append(this.getEditSectionBody(sectionNode));
+
+    this.editSectionContainer.dataset.isOpen = "true";
+  }
+
+  /**
+   * @param {SectionNode} node
+   */
+  getEditSectionBody(node) {
+    const body = document.createElement("div");
+    body.classList.add("formBuilder_sectionEdit_body_container");
+
+    const layoutsContainer = this.getEditSectionBodyLayout(node);
+    body.append(layoutsContainer);
+
+    const withBordersContainer = this.getEditSectionBodyWithBorders(node);
+    body.appendChild(withBordersContainer);
+
+    return body;
+  }
+
+  /**
+   * @param {SectionNode} node
+   */
+  getEditSectionBodyLayout(node) {
+    const layoutsContainer = document.createElement("div");
+    layoutsContainer.classList.add(
+      "formBuilder_sectionEdit_body_layouts_container"
+    );
+
+    layoutsContainer.innerHTML = "<label>Layouts:</label>";
+
+    const layouts = document.createElement("div");
+    layouts.classList.add("formBuilder_sectionEdit_body_layouts");
+
+    node.layouts.forEach((layoutValue, idx) => {
+      const layoutBtn = document.createElement("div");
+      layoutBtn.classList.add("formBuilder_sectionEdit_body_layouts_btn");
+
+      layoutBtn.value = layoutValue;
+      layoutBtn.onclick = () => {
+        node.attr.layout = layoutValue;
+        this.renderTree();
+        layouts
+          .querySelectorAll(".formBuilder_sectionEdit_body_layouts_btn")
+          .forEach((btn) => {
+            btn.classList.remove("selected");
+          });
+        layoutBtn.classList.add("selected");
+      };
+
+      for (let i = 0; i <= idx; i++) {
+        const square = document.createElement("div");
+        square.classList.add("formBuilder_sectionEdit_body_layouts_btn_square");
+        layoutBtn.append(square);
+      }
+      if (layoutValue === node.attr.layout) {
+        layoutBtn.classList.add("selected");
+      }
+
+      layouts.append(layoutBtn);
+    });
+    layoutsContainer.append(layouts);
+
+    return layoutsContainer;
+  }
+  /**
+   * @param {SectionNode} node
+   */
+  getEditSectionBodyWithBorders(node) {
+    const withBordersContainer = document.createElement("div");
+    const withBorderLabel = document.createElement("label");
+    const withBorderCheckbox = document.createElement("input");
+    withBorderCheckbox.type = "checkbox";
+    withBorderCheckbox.checked = !!node.attr.withBorders;
+
+    withBorderCheckbox.onchange = (e) => {
+      node.attr.withBorders = e.target.checked;
+      this.renderTree();
+    };
+
+    withBorderLabel.appendChild(withBorderCheckbox);
+    withBorderLabel.appendChild(document.createTextNode(" With border"));
+    withBordersContainer.appendChild(withBorderLabel);
+
+    return withBordersContainer;
+  }
+
+  renderTree() {
+    this.form.innerHTML = "";
+    this.printTree("NEW");
+    this.tree.children.forEach((node) => {
+      this.form.append(
+        node.getHtmlElement(this.isEdit, () => this.openEditSection(node.id))
+      );
+    });
   }
 }
 

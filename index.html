@@ -6,13 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite App</title>
     <script type="module" src="/src/main2.js"></script>
+    <link rel="stylesheet" href="./src/style.css" />
+    <link rel="stylesheet" href="./src/formBuilder.css" />
   </head>
   <body>
     <div id="app"></div>
     <div id="formContainer"></div>
     <script type="module">
       const formContainer = document.getElementById("formContainer");
-      const tree = new FormTree(formContainer);
+      const tree = new FormTree(formContainer, true);
       tree.printTree("Tree => ");
     </script>
   </body>
