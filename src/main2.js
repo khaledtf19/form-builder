@@ -1,381 +1,279 @@
-// const formBuilder = (function () {
-
-//   const EmptyNode = {
-//     type: "",
-//     attributes: {
-//       style: "",
-//       id: "",
-//     },
-//     children: [],
-//   };
-//   const NodeTypes = [
-//     "select",
-//     "input",
-//     "textarea",
-//     "checkbox",
-//     "radio",
-//     "button",
-//     "label",
-//     "form",
-//     "div",
-//     "option",
-//   ];
-
-//   function createNode(type, attributes, children) {
-//     if (!NodeTypes.includes(type)) {
-//       throw new Error(`Invalid node type: ${type}`);
-//     }
-//     if (typeof attributes !== "object") {
-//       throw new Error("Attributes must be an object");
-//     }
-//     if (!Array.isArray(children)) {
-//       throw new Error("Children must be an array");
-//     }
-
-//     let newNode = structuredClone(EmptyNode);
-//     (newNode.type = type),
-//       (newNode.attributes = {
-//         style: attributes.style || "",
-//         id: attributes.id || "",
-//       });
-//     newNode.children = children || [];
-//     return newNode;
-//   }
-
-//   function renderNode(node) {
-//     if (typeof node !== "object" || !node.type) {
-//       throw new Error("Invalid node structure");
-//     }
-
-//     let element = document.createElement(node.type);
-//     for (let [key, value] of Object.entries(node.attributes)) {
-//       if (value) {
-//         element.setAttribute(key, value);
-//       }
-//     }
-//     node.children.forEach((child) => {
-//       if (typeof child === "string") {
-//         element.appendChild(document.createTextNode(child));
-//       } else {
-//         element.appendChild(renderNode(child));
-//       }
-//     });
-//     return element;
-//   }
-
-//   /**
-//    * Renders a node to the DOM
-//    * @param {String} id
-//    * @param {Node} node
-//    * @returns
-//    */
-//   function render(id, node) {
-//     const container = document.getElementById(id);
-//     if (!container) {
-//       throw new Error(`Container with id ${id} not found`);
-//     }
-//     container.innerHTML = ""; // Clear previous content
-//     const renderedNode = renderNode(node);
-//     container.appendChild(renderedNode);
-//   }
-
-//   return { createNode, render, renderNode, NodeTypes };
-// })();
-
-// formBuilder.render("formContainer", {
-//   type: "form",
-//   attributes: { style: "width: 100%", id: "form1" },
-//   children: [
-//     formBuilder.createNode("input", { style: "width: 100%", id: "input1" }, []),
-//     formBuilder.createNode("select", { style: "width: 100%", id: "select1" }, [
-//       formBuilder.createNode(
-//         "option",
-//         { style: "width: 100%", id: "option1" },
-//         ["Option 1"]
-//       ),
-//       formBuilder.createNode(
-//         "option",
-//         { style: "width: 100%", id: "option2" },
-//         ["Option 2"]
-//       ),
-//     ]),
-//     formBuilder.createNode("div", { style: "width: 100%", id: "div1" }, [
-//       formBuilder.createNode("label", { style: "width: 100%", id: "label1" }, [
-//         "Label Text",
-//       ]),
-//       formBuilder.createNode(
-//         "input",
-//         { type: "checkbox", id: "checkbox1" },
-//         []
-//       ),
-//       formBuilder.createNode("input", { type: "radio", id: "radio1" }, []),
-//       formBuilder.createNode(
-//         "button",
-//         { style: "width: 100%", id: "button1" },
-//         ["Submit"]
-//       ),
-//     ]),
-//   ],
-// });
-
+"use strict";
+if (typeof window === "undefined") {
+  throw new Error("This script is intended to run in a browser environment.");
+}
 /**
- * @typedef {Object} BuilderNode
- * @property {String} type - The type of the node (e.g., "input", "select", etc.)
- * @property {Object} attributes - The attributes of the node
- * @property {String} attributes.style - The style of the node
- * @property {String} attributes.id - The id of the node
- * @property {Node[]} children - The children of the node, which can be strings or other nodes
+ * @typedef {Object} NodeItemType
+ * @property {string} type
+ * @property {string} id
+ * @property {NodeItemType[]}children
  */
 
-class FormBuilder {
-  constructor(formId, name) {
-    this.form = document.getElementById(formId);
-    this.name = name;
-    if (!name) {
-      throw new Error(`name is required`);
+class NodeItem {
+  /**
+   * @constructor
+   * @param {Object} obj - The object containing initialization properties.
+   * @param {string} obj.id - The unique identifier for the node.
+   */
+  constructor({ id }) {
+    if (!id) {
+      throw new Error("expected id");
     }
-    if (!this.form) {
-      throw new Error(`Form with id ${formId} not found`);
+
+    this.id = id;
+    this.type = "";
+    this.attr = {};
+
+    /**@type {NodeItem[]} */
+    this.children = [];
+  }
+  /**
+   * @param {NodeItem} node
+   */
+  pushToChildren(node) {
+    this.children.push(node);
+  }
+}
+class SectionNode extends NodeItem {
+  /**
+   * @constructor
+   * @param {Object} obj - The object containing initialization properties.
+   * @param {string} obj.id - The unique identifier for the node.
+   */
+  constructor({ id }) {
+    super({ id });
+    this.type = "section";
+
+    this.layouts = [" repeat(1, 1fr);", " repeat(2, 1fr);", "repeat(3, 1fr);"];
+    let title = "";
+
+    let withBorders = false;
+    this.attr = { withBorders, title, layout: this.layouts[0] };
+  }
+  getHtmlElement() {
+    const section = document.createElement("section");
+    section.id = this.id;
+    section.style.width = "100%";
+
+    section.style.display = "grid";
+    section.style.gridTemplateColumns = this.attr.layout;
+
+    return section;
+  }
+}
+
+class InputNode extends NodeItem {
+  /**
+   * @constructor
+   * @param {Object} obj - The object containing initialization properties.
+   * @param {string} obj.id - The unique identifier for the node.
+   */
+  constructor({ id }) {
+    super({ id });
+    this.type = "input";
+  }
+  getHtmlElement() {
+    const container = document.createElement("div");
+    container.classList.add("input_container");
+    container.id = this.id;
+
+    const input = document.createElement("input");
+    input.id = this.id + "inputs";
+    input.style.width = "100%";
+    container.append(input);
+
+    return container;
+  }
+}
+
+class Tree {
+  /**
+   * @param {HTMLElement} container
+   */
+  constructor(container) {
+    if (!(container instanceof Element)) {
+      throw new Error("Expected an Element as the form element.");
     }
-    if (!this.form) {
-      throw new Error("Form container not found");
-    }
-    this.rootNode = {
+    const formElement = document.createElement("form");
+    formElement.id = container.id + "Form";
+
+    this.root = container;
+    container.append(formElement);
+    this.form = formElement;
+    this.formId = formElement.id;
+
+    this.tree = {
       type: "form",
-      attributes: {
-        style: "width: 100%",
-        id: name,
-        value: "",
-      },
+      id: formElement.id,
+      /**@type {NodeItem[]} */
       children: [],
     };
-    this.validTypes = [
-      "select",
-      "input",
-      "textarea",
-      "checkbox",
-      "radio",
-      "button",
-      "label",
-      "form",
-      "div",
-      "option",
-    ];
-    this.count = 0;
-    this.state = {};
-    this.editState = {};
+
+    this.initRoot();
+    this.initForm();
+
+    const firstSection = this.handleNewSection("First");
+    this.tree.children.push(firstSection);
+    const secSection = this.handleNewSection("Sec");
+    this.tree.children.push(secSection);
+
+    console.log(this.getNodeWithId(this.tree, "First"));
   }
 
-  createNode(type, attributes = {}, children = []) {
-    if (!this.validTypes.includes(type)) {
-      throw new Error(`Invalid node type: ${type}`);
-    }
-    if (typeof attributes !== "object") {
-      throw new Error("Attributes must be an object");
-    }
-    if (!Array.isArray(children)) {
-      throw new Error("Children must be an array");
-    }
-    if (!attributes.id) {
-      attributes.id = `${type}-${this.count++}`;
-    }
-    if (children.length === 0) {
-      children = []; // Ensure children is always an array
-    }
+  NodeTypes = {
+    section: "section",
+    input: "input",
+  };
 
-    return new Node(type, attributes, children);
-  }
+  initRoot() {
+    this.root.style.position = "relative";
+    // Create a native dialog element for sectionId input
+    const sectionIdDialog = document.createElement("dialog");
+    sectionIdDialog.id = "sectionIdDialog";
+    sectionIdDialog.innerHTML = `
+      <form method="dialog" style="display:flex;flex-direction:column;gap:1em;">
+        <label for="sectionIdInput">Section ID:</label>
+        <input type="text" id="sectionIdInput" name="sectionId" required>
+        <menu style="display:flex;gap:1em;justify-content:flex-end;">
+          <button id="sectionIdCancelBtn" type="reset">Cancel</button>
+          <button id="sectionIdOkBtn" value="default" type="submit">OK</button>
+        </menu>
+      </form>
+    `;
 
-  appendToRoot(node) {
-    if (!node || typeof node !== "object" || !node.type) {
-      throw new Error("Invalid node structure");
-    }
-    if (!this.validTypes.includes(node.type)) {
-      throw new Error(`Invalid node type: ${node.type}`);
-    }
-    this.rootNode.children.push(node);
-    this.render(); // Re-render the form after adding the node
-  }
+    this.root.append(sectionIdDialog);
+    const cancelBtn = sectionIdDialog.querySelector("#sectionIdCancelBtn");
+    cancelBtn.addEventListener("click", () => {
+      sectionIdDialog.close();
+    });
+    this.openSectionIdDialog = () => {
+      sectionIdDialog.showModal();
+      sectionIdDialog.querySelector("#sectionIdInput").focus();
+    };
 
-  /**
-   * Renders Root Node to the DOM
-   */
-  render() {
-    this.form.innerHTML = ""; // Clear previous content
-    const renderedNode = this.renderNode(this.rootNode);
-    this.form.appendChild(renderedNode);
-  }
-
-  /**
-   * Renders a node to the DOM
-   */
-  renderNode(node) {
-    if (typeof node !== "object" || !node.type) {
-      throw new Error("Invalid node structure");
-    }
-
-    let element = document.createElement(node.type);
-    for (let [key, value] of Object.entries(node.attributes)) {
-      if (value) {
-        element.setAttribute(key, value);
-      }
-    }
-    node.children.forEach((child) => {
-      if (typeof child === "string") {
-        element.appendChild(document.createTextNode(child));
-      } else {
-        element.appendChild(this.renderNode(child));
+    sectionIdDialog.addEventListener("close", () => {
+      if (sectionIdDialog.returnValue === "default") {
+        const input = sectionIdDialog.querySelector("#sectionIdInput");
+        const sectionId = input.value.trim();
+        if (sectionId) {
+          this.handlePushToChildren(
+            this.formId,
+            this.handleNewSection(sectionId)
+          );
+        }
+        input.value = ""; // reset for next open
       }
     });
-    return element;
+
+    // Add SectionButton to root
+    const AddSectionButton = document.createElement("button");
+    AddSectionButton.innerText = "Add New Section";
+    AddSectionButton.style.position = "absolute";
+    AddSectionButton.style.top = "0";
+
+    AddSectionButton.addEventListener("click", () => {
+      this.openSectionIdDialog();
+    });
+
+    this.root.append(AddSectionButton);
   }
-  render() {
-    this.form.innerHTML = ""; // Clear previous content
-    const renderedNode = this.renderNode(this.rootNode);
-    this.form.appendChild(renderedNode);
+
+  initForm() {
+    this.form.style.width = "210mm";
+    this.form.style.minHeight = "297mm";
+    this.form.style.padding = "20mm";
+    this.form.style.boxSizing = "border-box";
+    this.form.style.backgroundColor = "white";
+    this.form.style.margin = "20px auto";
+    this.form.style.boxShadow = "0 0 10px rgba(0,0,0,0.1)";
+    this.form.style.border = "1px solid #ddd";
+    this.form.style.position = "relative";
+
+    // Add paper texture
+    this.form.style.backgroundImage =
+      "linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px)";
+    this.form.style.backgroundSize = "100% 2em";
+    this.form.style.backgroundPosition = "0 1em";
   }
+
   /**
-   * Adds a child node to node
+   *
+   * @param {string} parentId
+   * @param {NodeItemType} node
    */
-  addChild(nodeId, childNode) {
-    const parentNode = this.findNodeById(this.rootNode, nodeId);
-    if (!parentNode) {
-      throw new Error(`Node with id ${nodeId} not found`);
-    }
-    if (!this.validTypes.includes(childNode.type)) {
-      throw new Error(`Invalid child node type: ${childNode.type}`);
-    }
-    parentNode.children.push(childNode);
-    this.render(); // Re-render the form after adding the child
+  handlePushToChildren(parentId, node) {
+    const parent = this.getNodeWithId(this.tree, parentId);
+    parent.children.push(node);
   }
-  findNodeById(node, id) {
-    if (node.attributes.id === id) {
-      return node;
+
+  /**
+   *
+   * @param {string} id
+   * @returns {NodeItemType}
+   */
+  handleNewSection(id) {
+    if (!id || typeof id !== "string") {
+      throw new Error("Invalid section ID provided.");
     }
-    for (let child of node.children) {
-      if (typeof child === "object") {
-        const found = this.findNodeById(child, id);
-        if (found) {
-          return found;
-        }
-      }
+    // const section = {
+    //   id: id,
+    //   type: this.NodeTypes.section,
+    //   attr: attr,
+    //   children: [],
+    // };
+    const section = new SectionNode({ id });
+    return section;
+  }
+
+  handleChangeSectionAttr(id) {
+    const sectionNode = this.getNodeWithId(this.tree, id);
+    if (!sectionNode) {
+      return;
     }
+    const sectionElement = document.getElementById(sectionNode.id);
+  }
+
+  /**
+   * @param {NodeItemType} node this is the tree
+   * @param {string} id
+   * @returns {NodeItemType}
+   */
+  getNodeWithId(node, id) {
+    if (node === null || (node.id !== id && node.children.length === 0))
+      return null;
+
+    if (node.id === id) return node;
+
+    for (let i = 0; i < node.children.length; i++) {
+      const currNode = this.getNodeWithId(node.children[i], id);
+      if (currNode) return currNode;
+    }
+
     return null;
   }
 
-  /**
-   * Removes a child node by id
-   */
-  removeChild(childId) {
-    const parentNode = this.findParentNodeById(this.rootNode, childId);
-    if (!parentNode) {
-      throw new Error(`Node with id ${childId} not found`);
-    }
-    parentNode.children = parentNode.children.filter(
-      (child) => child.attributes.id !== childId
-    );
-    this.render(); // Re-render the form after removing the child
-  }
-
-  findParentNodeById(node, id) {
-    for (let child of node.children) {
-      if (typeof child === "object" && child.attributes.id === id) {
-        return node; // Return the parent node
-      }
-      if (typeof child === "object") {
-        const found = this.findParentNodeById(child, id);
-        if (found) {
-          return found; // Return the parent node
-        }
-      }
-    }
-    return null; // No parent found
-  }
-  handleStateChange(nodeId, state) {
-    const node = this.findNodeById(this.rootNode, nodeId);
-    if (!node) {
-      throw new Error(`Node with id ${nodeId} not found`);
-    }
-    if (typeof state !== "object") {
-      throw new Error("State must be an object");
-    }
-    Object.assign(node.attributes, state);
-    this.render(); // Re-render the form after state change
-  }
-
-  clear() {
-    this.form.innerHTML = "";
-  }
-
-  renderEditableRoot() {}
-  /**
-   *
-   * @param {BuilderNode} node
-   */
-  editableNode(node) {
-    switch (node.type) {
-      case "input":
-    }
-  }
-
-  editableWrapperNode() {
-    const wrapper = document.createElement("div");
-    wrapper.className = "editable-wrapper";
-    return wrapper;
-  }
-
-  /**
-   * @param {BuilderNode} node
-   */
-  editableInputNode(node) {
-    const wrapper = this.editableWrapperNode();
-    const input = `
-    <div>
-      <label for=""></label>
-    </div>
-   `;
+  printTree(message) {
+    console.log(message, "\n", this.tree);
   }
 }
 
-class Node {
-  constructor(type, attributes = {}, children = []) {
-    this.type = type;
-    this.attributes = {
-      style: attributes.style || "",
-      id: attributes.id || "",
-      value: attributes.value || "",
-      class: attributes.class || "",
-      ...attributes,
-    };
-    this.children = Array.isArray(children) ? children : [];
-  }
-}
+window.FormTree = Tree;
 
-const formBuilder = new FormBuilder("formContainer", "myForm");
-
-formBuilder.addChild(
-  "myForm",
-  formBuilder.createNode("input", { style: "width: 100%", id: "input1" })
-);
-
-formBuilder.render();
-setTimeout(() => {
-  formBuilder.appendToRoot(
-    formBuilder.createNode("select", { style: "width: 100%", id: "select1" }, [
-      formBuilder.createNode(
-        "option",
-        { style: "width: 100%", id: "option1", value: "1" },
-        ["Option 1"]
-      ),
-      formBuilder.createNode(
-        "option",
-        { style: "width: 100%", id: "option2", value: "2" },
-        ["Option 2"]
-      ),
-    ])
-  );
-}, 3000);
-setTimeout(() => {
-  formBuilder.removeChild("option1");
-}, 6000);
-console.log(formBuilder);
+/**
+ * TreeShape
+ *
+ * Node {
+ *  id: Root,
+ *  children [
+ *    Node {
+ *    type : section,
+ *    id : "ID",
+ *    children [
+ *      Node*
+ *    ]
+ *    }
+ * ]
+ * }
+ *
+ *
+ */
