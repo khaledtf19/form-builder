@@ -212,13 +212,40 @@
   justify-content: center;
   color: black;
 }
-.formBuilder_input_container label {
+
+.formBuilder_text_container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: black;
+}
+
+.formBuilder_text_container p {
+  margin: 0;
+  padding: 0;
+}
+
+.formBuilder_checkbox_container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: black;
+}
+
+.formBuilder_checkbox_container input[type="checkbox"] {
+  margin: 0;
+}
+
+.formBuilder_input_container label,
+.formBuilder_text_container label,
+.formBuilder_checkbox_container label {
   max-width: 100%;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .formBuilder_sectionEdit_body_currItems_container {
 }
 .formBuilder_sectionEdit_body_currItems_container {
@@ -238,9 +265,251 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  position: relative;
 }
 
 .formBuilder_sectionEdit_body_currItems_item_body {
   display: flex;
   width: 100%;
+}
+
+.formBuilder_sectionEdit_body_currItems_remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: #ff4444;
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  transition: background-color 0.2s;
+}
+
+.formBuilder_sectionEdit_body_currItems_remove:hover {
+  background: #ff0000;
+}
+
+.formBuilder_sectionEdit_body_currItems_config {
+  position: absolute;
+  top: 5px;
+  right: 30px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: #666;
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  transition: background-color 0.2s;
+}
+
+.formBuilder_sectionEdit_body_currItems_config:hover {
+  background: #444;
+}
+
+.formBuilder_configDialog {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 300px;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.formBuilder_configDialog_backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.formBuilder_configDialog_content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formBuilder_configDialog_header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.formBuilder_configDialog_title {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.formBuilder_configDialog_close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.formBuilder_configDialog_close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.formBuilder_configDialog_body {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.formBuilder_configDialog_group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formBuilder_configDialog_group label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.formBuilder_configDialog_group input[type="text"],
+.formBuilder_configDialog_group input[type="number"],
+.formBuilder_configDialog_group select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+}
+
+.formBuilder_configDialog_group input[type="text"]:focus,
+.formBuilder_configDialog_group input[type="number"]:focus,
+.formBuilder_configDialog_group select:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.formBuilder_configDialog_group input[type="color"] {
+  width: 100%;
+  height: 40px;
+  padding: 2px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.formBuilder_configDialog_group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Length constraints container */
+.formBuilder_configDialog_group:has(input[type="number"]) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Placeholder text for inputs */
+.formBuilder_configDialog_group input::placeholder {
+  color: #999;
+}
+
+/* Hover states */
+.formBuilder_configDialog_group input[type="text"]:hover,
+.formBuilder_configDialog_group input[type="number"]:hover,
+.formBuilder_configDialog_group select:hover {
+  border-color: #bbb;
+}
+
+/* Disabled state */
+.formBuilder_configDialog_group input:disabled,
+.formBuilder_configDialog_group select:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Error state */
+.formBuilder_configDialog_group input.error,
+.formBuilder_configDialog_group select.error {
+  border-color: #dc3545;
+}
+
+.formBuilder_configDialog_group input.error:focus,
+.formBuilder_configDialog_group select.error:focus {
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+}
+
+/* Help text */
+.formBuilder_configDialog_group .help-text {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* Validation message input */
+.formBuilder_configDialog_group input[placeholder*="validation"] {
+  font-style: italic;
+}
+
+/* Custom class input */
+.formBuilder_configDialog_group input[placeholder*="class"] {
+  font-family: monospace;
+}
+
+/* Pattern input */
+.formBuilder_configDialog_group input[placeholder*="regex"] {
+  font-family: monospace;
+}
+
+/* Scrollbar styling */
+.formBuilder_configDialog::-webkit-scrollbar {
+  width: 8px;
+}
+
+.formBuilder_configDialog::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.formBuilder_configDialog::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.formBuilder_configDialog::-webkit-scrollbar-thumb:hover {
+  background: #666;
 }
