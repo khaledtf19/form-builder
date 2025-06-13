@@ -1,5 +1,10 @@
 "use strict";
-import { computePosition } from "https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.7.1/+esm";
+import {
+  computePosition,
+  flip,
+  shift,
+  offset,
+} from "https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.7.1/+esm";
 
 if (typeof window === "undefined") {
   throw new Error("This script is intended to run in a browser environment.");
@@ -39,6 +44,77 @@ class NodeItem {
   getHtmlElement() {
     return document.createElement("div");
   }
+
+  createTextInput(value) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = value || "";
+    return input;
+  }
+
+  createCheckbox(checked, label) {
+    const container = document.createElement("div");
+    container.style.display = "flex";
+    container.style.alignItems = "center";
+    container.style.gap = "8px";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = checked || false;
+
+    if (label) {
+      const labelEl = document.createElement("label");
+      labelEl.textContent = label;
+      labelEl.style.fontSize = "14px";
+      labelEl.style.color = "#444";
+      container.appendChild(checkbox);
+      container.appendChild(labelEl);
+    } else {
+      container.appendChild(checkbox);
+    }
+
+    return container;
+  }
+
+  createConfigGroup(label) {
+    const container = document.createElement("div");
+    container.classList.add("formBuilder_configDialog_group");
+
+    const labelEl = document.createElement("label");
+    labelEl.textContent = label;
+    container.appendChild(labelEl);
+
+    return container;
+  }
+
+  createSelect(options, value) {
+    const select = document.createElement("select");
+    options.forEach((option) => {
+      const optionEl = document.createElement("option");
+      optionEl.value = option;
+      optionEl.textContent = option;
+      select.appendChild(optionEl);
+    });
+    select.value = value;
+    return select;
+  }
+
+  getEditItemElement() {
+    // TODO for every Node
+    return document.createElement("div");
+  }
+
+  getConfigBodyElement() {
+    // TODO for every Node
+    return document.createElement("div");
+  }
+
+  createColorInput(value) {
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = value || "#000000";
+    return input;
+  }
 }
 class SectionNode extends NodeItem {
   /**
@@ -57,6 +133,7 @@ class SectionNode extends NodeItem {
       "repeat(1, minmax(0, 1fr))",
       "repeat(2, minmax(0, 1fr))",
       "repeat(3, minmax(0, 1fr))",
+      "repeat(4, minmax(0, 1fr))",
     ];
 
     // make sure you have the class names in the css
@@ -66,7 +143,14 @@ class SectionNode extends NodeItem {
     this.currGapX = this.gapsX[0];
     this.currGapY = this.gapsY[0];
 
-    this.childrenTypes = ["Input", "Text", "Checkbox"];
+    this.childrenTypes = [
+      "Input",
+      "Text",
+      "Checkbox",
+      "Radio",
+      "Select",
+      "Date",
+    ];
 
     /**
      * this will hold the count of every type in the children
@@ -101,6 +185,15 @@ class SectionNode extends NodeItem {
       case "Checkbox":
         this.addNewCheckboxToSection(this.countMap.get(type));
         break;
+      case "Radio":
+        this.addNewRadioToSection(this.countMap.get(type));
+        break;
+      case "Select":
+        this.addNewSelectToSection(this.countMap.get(type));
+        break;
+      case "Date":
+        this.addNewDateToSection(this.countMap.get(type));
+        break;
       default:
         break;
     }
@@ -111,7 +204,6 @@ class SectionNode extends NodeItem {
   addNewInputToSection(count) {
     const inputNode = new InputNode({ id: this.id, count: count });
     this.pushToChildren(inputNode);
-    console.log(this.children);
   }
 
   addNewTextToSection(count) {
@@ -122,6 +214,21 @@ class SectionNode extends NodeItem {
   addNewCheckboxToSection(count) {
     const checkboxNode = new CheckboxNode({ id: this.id, count: count });
     this.pushToChildren(checkboxNode);
+  }
+
+  addNewRadioToSection(count) {
+    const radioNode = new RadioNode({ id: this.id, count: count });
+    this.pushToChildren(radioNode);
+  }
+
+  addNewSelectToSection(count) {
+    const selectNode = new SelectNode({ id: this.id, count: count });
+    this.pushToChildren(selectNode);
+  }
+
+  addNewDateToSection(count) {
+    const dateNode = new DateNode({ id: this.id, count: count });
+    this.pushToChildren(dateNode);
   }
 
   /**
@@ -151,6 +258,54 @@ class SectionNode extends NodeItem {
     if (isEdit) {
       const editPoint = document.createElement("div");
       editPoint.classList.add("formBuilder_section_editPoint");
+
+      // Remove any existing tooltips
+      const existingTooltips = document.querySelectorAll(
+        ".formBuilder_section_tooltip"
+      );
+      existingTooltips.forEach((tooltip) => tooltip.remove());
+
+      // Create tooltip
+      const tooltip = document.createElement("div");
+      tooltip.classList.add("formBuilder_section_tooltip");
+      tooltip.textContent = this.id;
+      tooltip.style.position = "absolute";
+      tooltip.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+      tooltip.style.color = "white";
+      tooltip.style.padding = "4px 8px";
+      tooltip.style.borderRadius = "4px";
+      tooltip.style.fontSize = "12px";
+      tooltip.style.pointerEvents = "none";
+      tooltip.style.opacity = "0";
+      tooltip.style.transition = "opacity 0.2s ease";
+      tooltip.style.zIndex = "1000";
+      tooltip.style.whiteSpace = "nowrap";
+
+      // Add tooltip to document body
+
+      // Show tooltip on hover
+      editPoint.addEventListener("mouseenter", () => {
+        document.body.appendChild(tooltip);
+        tooltip.style.display = "block";
+        computePosition(editPoint, tooltip, {
+          placement: "top",
+          middleware: [offset(4), flip(), shift({ padding: 5 })],
+        }).then(({ x, y }) => {
+          Object.assign(tooltip.style, {
+            left: `${x}px`,
+            top: `${y}px`,
+            opacity: "1",
+          });
+        });
+      });
+
+      // Hide tooltip on mouse leave
+      editPoint.addEventListener("mouseleave", () => {
+        tooltip.style.opacity = "0";
+        setTimeout(() => {
+          tooltip.style.display = "none";
+        }, 200);
+      });
 
       editPoint.onclick = () => editOnClick(section.id);
 
@@ -199,8 +354,8 @@ class InputNode extends NodeItem {
 
     if (this.withLabel) {
       const label = document.createElement("label");
-      label.innerText = this.label;
-      container.append(label);
+      label.textContent = this.label;
+      container.appendChild(label);
     }
 
     container.id = this.id + "Input" + this.count + "Container";
@@ -242,6 +397,150 @@ class InputNode extends NodeItem {
    */
   changeCurrLabel(newLabel) {
     this.label = newLabel;
+  }
+
+  createNumberInput(value, placeholder) {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.value = value || "";
+    input.placeholder = placeholder;
+    return input;
+  }
+
+  /**
+   * @param {HTMLDivElement} container
+   */
+  getConfigBodyElement(container, renderTree) {
+    // Label
+    const labelContainer = this.createConfigGroup("Label");
+
+    // Label Checkbox
+    const labelCheckbox = this.createCheckbox(this.withLabel, "Show Label");
+    labelCheckbox.onchange = (e) => {
+      this.withLabel = e.target.checked;
+      renderTree();
+    };
+
+    labelContainer.appendChild(labelCheckbox);
+
+    // Label Text Input
+    const labelTextInput = this.createTextInput(this.label);
+    labelTextInput.placeholder = "Enter label text";
+    labelTextInput.onchange = (e) => {
+      this.label = e.target.value;
+      renderTree();
+    };
+    labelContainer.appendChild(labelTextInput);
+
+    if (this.withLabel) {
+    }
+
+    container.appendChild(labelContainer);
+
+    // Input Type
+    const inputTypeContainer = this.createConfigGroup("Input Type");
+    const typeSelect = this.createSelect(
+      ["text", "number", "email", "password", "tel", "url"],
+      this.inputType
+    );
+    typeSelect.onchange = (e) => {
+      this.inputType = e.target.value;
+      renderTree();
+    };
+    inputTypeContainer.appendChild(typeSelect);
+    container.appendChild(inputTypeContainer);
+
+    // Placeholder
+    const placeholderContainer = this.createConfigGroup("Placeholder");
+    const placeholderInput = this.createTextInput(this.placeholder);
+    placeholderInput.onchange = (e) => {
+      this.placeholder = e.target.value;
+      renderTree();
+    };
+    placeholderContainer.appendChild(placeholderInput);
+    container.appendChild(placeholderContainer);
+
+    // All Checkboxes Group
+    const checkboxesGroup = this.createConfigGroup("Options");
+    checkboxesGroup.style.display = "flex";
+    checkboxesGroup.style.flexDirection = "column";
+    checkboxesGroup.style.gap = "12px";
+
+    // Required
+    const requiredCheckbox = this.createCheckbox(
+      this.required,
+      "Required field"
+    );
+    requiredCheckbox.onchange = (e) => {
+      this.required = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(requiredCheckbox);
+
+    // Read Only
+    const readOnlyCheckbox = this.createCheckbox(this.readOnly, "Read Only");
+    readOnlyCheckbox.onchange = (e) => {
+      this.readOnly = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(readOnlyCheckbox);
+
+    // Disabled
+    const disabledCheckbox = this.createCheckbox(this.disabled, "Disabled");
+    disabledCheckbox.onchange = (e) => {
+      this.disabled = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(disabledCheckbox);
+
+    container.appendChild(checkboxesGroup);
+
+    // Min/Max Length
+    const lengthContainer = this.createConfigGroup("Length Constraints");
+    const minLengthInput = this.createNumberInput(this.minLength, "Min Length");
+    const maxLengthInput = this.createNumberInput(this.maxLength, "Max Length");
+    minLengthInput.onchange = (e) => {
+      this.minLength = parseInt(e.target.value) || 0;
+      renderTree();
+    };
+    maxLengthInput.onchange = (e) => {
+      this.maxLength = parseInt(e.target.value) || 0;
+      renderTree();
+    };
+    lengthContainer.appendChild(minLengthInput);
+    lengthContainer.appendChild(maxLengthInput);
+    container.appendChild(lengthContainer);
+
+    // Pattern
+    const patternContainer = this.createConfigGroup("Validation Pattern");
+    const patternInput = this.createTextInput(this.pattern);
+    patternInput.placeholder = "Enter regex pattern";
+    patternInput.onchange = (e) => {
+      this.pattern = e.target.value;
+      renderTree();
+    };
+    patternContainer.appendChild(patternInput);
+    container.appendChild(patternContainer);
+
+    // Default Value
+    const defaultValueContainer = this.createConfigGroup("Default Value");
+    const defaultValueInput = this.createTextInput(this.defaultValue);
+    defaultValueInput.onchange = (e) => {
+      this.defaultValue = e.target.value;
+      renderTree();
+    };
+    defaultValueContainer.appendChild(defaultValueInput);
+    container.appendChild(defaultValueContainer);
+
+    // Validation Message
+    const validationContainer = this.createConfigGroup("Validation Message");
+    const validationInput = this.createTextInput(this.validationMessage);
+    validationInput.onchange = (e) => {
+      this.validationMessage = e.target.value;
+      renderTree();
+    };
+    validationContainer.appendChild(validationInput);
+    container.appendChild(validationContainer);
   }
 }
 
@@ -303,6 +602,111 @@ class TextNode extends NodeItem {
   changeText(newText) {
     this.text = newText;
   }
+
+  /**
+   * @param {HTMLDivElement} container
+   * @param {Function} renderTree
+   */
+  getConfigBodyElement(container, renderTree) {
+    // Text Style
+    const styleContainer = this.createConfigGroup("Text Style");
+    const styleSelect = this.createSelect(
+      ["normal", "bold", "italic", "underline"],
+      this.textStyle
+    );
+    styleSelect.onchange = (e) => {
+      this.textStyle = e.target.value;
+      renderTree();
+    };
+    styleContainer.appendChild(styleSelect);
+    container.appendChild(styleContainer);
+
+    // Font Size
+    const fontSizeContainer = this.createConfigGroup("Font Size");
+    const fontSizeInput = this.createTextInput(this.fontSize);
+    fontSizeInput.onchange = (e) => {
+      this.fontSize = e.target.value;
+      renderTree();
+    };
+    fontSizeContainer.appendChild(fontSizeInput);
+    container.appendChild(fontSizeContainer);
+
+    // Text Color
+    const colorContainer = this.createConfigGroup("Text Color");
+    const colorInput = this.createColorInput(this.textColor);
+    colorInput.onchange = (e) => {
+      this.textColor = e.target.value;
+      renderTree();
+    };
+    colorContainer.appendChild(colorInput);
+    container.appendChild(colorContainer);
+
+    // Text Align
+    const alignContainer = this.createConfigGroup("Text Alignment");
+    const alignSelect = this.createSelect(
+      ["left", "center", "right"],
+      this.textAlign
+    );
+    alignSelect.onchange = (e) => {
+      this.textAlign = e.target.value;
+      renderTree();
+    };
+    alignContainer.appendChild(alignSelect);
+    container.appendChild(alignContainer);
+
+    // Line Height
+    const lineHeightContainer = this.createConfigGroup("Line Height");
+    const lineHeightInput = this.createTextInput(this.lineHeight);
+    lineHeightInput.onchange = (e) => {
+      this.lineHeight = e.target.value;
+      renderTree();
+    };
+    lineHeightContainer.appendChild(lineHeightInput);
+    container.appendChild(lineHeightContainer);
+
+    // Margin
+    const marginContainer = this.createConfigGroup("Margin");
+    const marginInput = this.createTextInput(this.margin);
+    marginInput.onchange = (e) => {
+      this.margin = e.target.value;
+      renderTree();
+    };
+    marginContainer.appendChild(marginInput);
+    container.appendChild(marginContainer);
+
+    // Padding
+    const paddingContainer = this.createConfigGroup("Padding");
+    const paddingInput = this.createTextInput(this.padding);
+    paddingInput.onchange = (e) => {
+      this.padding = e.target.value;
+      renderTree();
+    };
+    paddingContainer.appendChild(paddingInput);
+    container.appendChild(paddingContainer);
+
+    // Custom Class
+    const classContainer = this.createConfigGroup("Custom Class");
+    const classInput = this.createTextInput(this.customClass);
+    classInput.onchange = (e) => {
+      this.customClass = e.target.value;
+      renderTree();
+    };
+    classContainer.appendChild(classInput);
+    container.appendChild(classContainer);
+
+    // Text Transform
+    const transformContainer = this.createConfigGroup("Text Transform");
+    const transformSelect = this.createSelect(
+      ["none", "uppercase", "lowercase", "capitalize"],
+      this.textTransform
+    );
+    transformSelect.onchange = (e) => {
+      this.textTransform = e.target.value;
+      renderTree();
+    };
+    transformContainer.appendChild(transformSelect);
+    container.appendChild(transformContainer);
+  }
 }
 
 class CheckboxNode extends NodeItem {
@@ -319,6 +723,7 @@ class CheckboxNode extends NodeItem {
 
     this.withLabel = false;
     this.label = "Label";
+    this.value = "value";
     this.checked = false;
     this.required = false;
     this.disabled = false;
@@ -342,6 +747,7 @@ class CheckboxNode extends NodeItem {
     checkbox.required = this.required;
     checkbox.disabled = this.disabled;
     checkbox.indeterminate = this.indeterminate;
+    checkbox.value = this.value;
     if (this.groupName) checkbox.name = this.groupName;
     if (this.validationMessage) checkbox.title = this.validationMessage;
     container.append(checkbox);
@@ -379,11 +785,580 @@ class CheckboxNode extends NodeItem {
   setChecked(checked) {
     this.checked = checked;
   }
+
+  /**
+   * @param {HTMLDivElement} container
+   * @param {Function} renderTree
+   */
+  getConfigBodyElement(container, renderTree) {
+    // Label
+    const labelContainer = this.createConfigGroup("Label");
+
+    // Label Checkbox
+    const labelCheckbox = this.createCheckbox(this.withLabel, "Show Label");
+    labelCheckbox.onchange = (e) => {
+      this.withLabel = e.target.checked;
+      renderTree();
+    };
+    labelContainer.appendChild(labelCheckbox);
+
+    // Label Text Input
+    const labelTextInput = this.createTextInput(this.label);
+    labelTextInput.placeholder = "Enter label text";
+    labelTextInput.onchange = (e) => {
+      this.label = e.target.value;
+      renderTree();
+    };
+    labelContainer.appendChild(labelTextInput);
+
+    container.appendChild(labelContainer);
+
+    // Value
+    const valueContainer = this.createConfigGroup("Value");
+    const valueInput = this.createTextInput(this.value);
+    valueInput.onchange = (e) => {
+      this.value = e.target.value;
+      renderTree();
+    };
+    valueContainer.appendChild(valueInput);
+    container.appendChild(valueContainer);
+
+    // All Checkboxes Group
+    const checkboxesGroup = this.createConfigGroup("Options");
+    checkboxesGroup.style.display = "flex";
+    checkboxesGroup.style.flexDirection = "column";
+    checkboxesGroup.style.gap = "12px";
+
+    // Required
+    const requiredCheckbox = this.createCheckbox(
+      this.required,
+      "Required field"
+    );
+    requiredCheckbox.onchange = (e) => {
+      this.required = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(requiredCheckbox);
+
+    // Disabled
+    const disabledCheckbox = this.createCheckbox(this.disabled, "Disabled");
+    disabledCheckbox.onchange = (e) => {
+      this.disabled = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(disabledCheckbox);
+
+    // Indeterminate
+    const indeterminateCheckbox = this.createCheckbox(
+      this.indeterminate,
+      "Indeterminate state"
+    );
+    indeterminateCheckbox.onchange = (e) => {
+      this.indeterminate = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(indeterminateCheckbox);
+
+    container.appendChild(checkboxesGroup);
+
+    // Custom Class
+    const classContainer = this.createConfigGroup("Custom Class");
+    const classInput = this.createTextInput(this.customClass);
+    classInput.onchange = (e) => {
+      this.customClass = e.target.value;
+      renderTree();
+    };
+    classContainer.appendChild(classInput);
+    container.appendChild(classContainer);
+
+    // Group Name
+    const groupContainer = this.createConfigGroup("Group Name");
+    const groupInput = this.createTextInput(this.groupName);
+    groupInput.onchange = (e) => {
+      this.groupName = e.target.value;
+      renderTree();
+    };
+    groupContainer.appendChild(groupInput);
+    container.appendChild(groupContainer);
+
+    // Validation Message
+    const validationContainer = this.createConfigGroup("Validation Message");
+    const validationInput = this.createTextInput(this.validationMessage);
+    validationInput.onchange = (e) => {
+      this.validationMessage = e.target.value;
+      renderTree();
+    };
+    validationContainer.appendChild(validationInput);
+    container.appendChild(validationContainer);
+  }
+}
+
+class RadioNode extends NodeItem {
+  constructor({ id, count }) {
+    super({ id });
+    this.type = "radio";
+    this.count = count || 0;
+
+    this.withLabel = false;
+    this.label = "Label";
+    this.checked = false;
+    this.required = false;
+    this.disabled = false;
+    this.customClass = "";
+    this.groupName = "";
+    this.validationMessage = "";
+    this.options = ["Option 1", "Option 2", "Option 3"];
+    this.layout = "horizontal";
+  }
+
+  getHtmlElement() {
+    const container = document.createElement("div");
+    container.classList.add("formBuilder_radio_container");
+    if (this.customClass) container.classList.add(this.customClass);
+
+    container.id = this.id + "Radio" + this.count + "Container";
+
+    if (this.withLabel) {
+      const label = document.createElement("label");
+      label.innerText = this.label;
+      container.append(label);
+    }
+
+    const optionsContainer = document.createElement("div");
+    optionsContainer.classList.add("formBuilder_radio_options");
+    optionsContainer.classList.add(this.layout);
+
+    this.options.forEach((option, index) => {
+      const optionContainer = document.createElement("div");
+      optionContainer.classList.add("formBuilder_radio_option");
+
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.id = this.id + "Radio" + this.count + "_" + index;
+      radio.name = this.groupName || this.id + "Radio" + this.count;
+      radio.value = option;
+      radio.checked = index === 0 && this.checked;
+      radio.required = this.required;
+      radio.disabled = this.disabled;
+      if (this.validationMessage) radio.title = this.validationMessage;
+
+      const optionLabel = document.createElement("label");
+      optionLabel.htmlFor = radio.id;
+      optionLabel.innerText = option;
+
+      optionContainer.append(radio, optionLabel);
+      optionsContainer.append(optionContainer);
+    });
+
+    container.append(optionsContainer);
+    return container;
+  }
+
+  toggleWithLabel(fn) {
+    this.withLabel = !this.withLabel;
+    if (fn) {
+      fn();
+    }
+  }
+
+  changeCurrLabel(newLabel) {
+    this.label = newLabel;
+  }
+
+  addOption(option) {
+    this.options.push(option);
+  }
+
+  removeOption(index) {
+    this.options.splice(index, 1);
+  }
+
+  updateOption(index, newValue) {
+    if (index >= 0 && index < this.options.length) {
+      this.options[index] = newValue;
+    }
+  }
+}
+
+class SelectNode extends NodeItem {
+  constructor({ id, count }) {
+    super({ id });
+    this.type = "select";
+    this.count = count || 0;
+
+    this.withLabel = false;
+    this.label = "Label";
+    this.required = false;
+    this.disabled = false;
+    this.customClass = "";
+    this.validationMessage = "";
+    this.options = [
+      { label: "Option 1", value: "option1" },
+      { label: "Option 2", value: "option2" },
+      { label: "Option 3", value: "option3" },
+    ];
+    this.multiple = false;
+  }
+
+  getHtmlElement() {
+    const container = document.createElement("div");
+    container.classList.add("formBuilder_select_container");
+    if (this.customClass) container.classList.add(this.customClass);
+
+    container.id = this.id + "Select" + this.count + "Container";
+
+    if (this.withLabel) {
+      const label = document.createElement("label");
+      label.innerText = this.label;
+      container.append(label);
+    }
+
+    const select = document.createElement("select");
+    select.id = this.id + "Select" + this.count;
+    select.required = this.required;
+    select.disabled = this.disabled;
+    select.multiple = this.multiple;
+    if (this.validationMessage) select.title = this.validationMessage;
+
+    this.options.forEach((option) => {
+      const optionEl = document.createElement("option");
+      optionEl.value = option.value;
+      optionEl.textContent = option.label;
+      select.append(optionEl);
+    });
+
+    container.append(select);
+    return container;
+  }
+
+  toggleWithLabel(fn) {
+    this.withLabel = !this.withLabel;
+    if (fn) {
+      fn();
+    }
+  }
+
+  changeCurrLabel(newLabel) {
+    this.label = newLabel;
+  }
+
+  addOption(label, value) {
+    this.options.push({ label, value });
+  }
+
+  removeOption(index) {
+    this.options.splice(index, 1);
+  }
+
+  updateOption(index, label, value) {
+    if (index >= 0 && index < this.options.length) {
+      this.options[index] = { label, value };
+    }
+  }
+
+  /**
+   * @param {HTMLDivElement} container
+   * @param {Function} renderTree
+   */
+  getConfigBodyElement(container, renderTree) {
+    // Label
+    const labelContainer = this.createConfigGroup("Label");
+
+    // Label Checkbox
+    const labelCheckbox = this.createCheckbox(this.withLabel, "Show Label");
+    labelCheckbox.onchange = (e) => {
+      this.withLabel = e.target.checked;
+      renderTree();
+    };
+    labelContainer.appendChild(labelCheckbox);
+
+    // Label Text Input
+    const labelTextInput = this.createTextInput(this.label);
+    labelTextInput.placeholder = "Enter label text";
+    labelTextInput.onchange = (e) => {
+      this.label = e.target.value;
+      renderTree();
+    };
+    labelContainer.appendChild(labelTextInput);
+
+    container.appendChild(labelContainer);
+
+    // All Checkboxes Group
+    const checkboxesGroup = this.createConfigGroup("Options");
+    checkboxesGroup.style.display = "flex";
+    checkboxesGroup.style.flexDirection = "column";
+    checkboxesGroup.style.gap = "12px";
+
+    // Required
+    const requiredCheckbox = this.createCheckbox(
+      this.required,
+      "Required field"
+    );
+    requiredCheckbox.onchange = (e) => {
+      this.required = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(requiredCheckbox);
+
+    // Disabled
+    const disabledCheckbox = this.createCheckbox(this.disabled, "Disabled");
+    disabledCheckbox.onchange = (e) => {
+      this.disabled = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(disabledCheckbox);
+
+    // Multiple
+    const multipleCheckbox = this.createCheckbox(
+      this.multiple,
+      "Allow multiple selection"
+    );
+    multipleCheckbox.onchange = (e) => {
+      this.multiple = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(multipleCheckbox);
+
+    container.appendChild(checkboxesGroup);
+
+    // Options
+    const optionsContainer = this.createConfigGroup("Options");
+    const optionsList = document.createElement("div");
+    optionsList.classList.add("formBuilder_configDialog_options_list");
+
+    this.options.forEach((option, index) => {
+      const optionContainer = document.createElement("div");
+      optionContainer.classList.add("formBuilder_configDialog_option_item");
+
+      const labelInput = this.createTextInput(option.label);
+      labelInput.placeholder = "Label";
+      labelInput.onchange = (e) => {
+        this.updateOption(index, e.target.value, option.value);
+        renderTree();
+      };
+
+      const valueInput = this.createTextInput(option.value);
+      valueInput.placeholder = "Value";
+      valueInput.onchange = (e) => {
+        this.updateOption(index, option.label, e.target.value);
+        renderTree();
+      };
+
+      const removeButton = document.createElement("button");
+      removeButton.innerHTML = "×";
+      removeButton.classList.add("formBuilder_configDialog_option_remove");
+      removeButton.onclick = () => {
+        this.removeOption(index);
+        renderTree();
+        // Optionally, re-open dialog if needed
+      };
+
+      optionContainer.appendChild(labelInput);
+      optionContainer.appendChild(valueInput);
+      optionContainer.appendChild(removeButton);
+      optionsList.appendChild(optionContainer);
+    });
+
+    const addOptionButton = document.createElement("button");
+    addOptionButton.textContent = "Add Option";
+    addOptionButton.classList.add("formBuilder_configDialog_add_option");
+    addOptionButton.onclick = () => {
+      const newLabel = "New Option";
+      const newValue = "new_option_" + (this.options.length + 1);
+      this.addOption(newLabel, newValue);
+      renderTree();
+      // Optionally, re-open dialog if needed
+    };
+
+    optionsContainer.appendChild(optionsList);
+    optionsContainer.appendChild(addOptionButton);
+    container.appendChild(optionsContainer);
+  }
+}
+
+class DateNode extends NodeItem {
+  constructor({ id, count }) {
+    super({ id });
+    this.type = "date";
+    this.count = count || 0;
+
+    this.withLabel = false;
+    this.label = "Label";
+    this.required = false;
+    this.disabled = false;
+    this.customClass = "";
+    this.validationMessage = "";
+    this.minDate = "";
+    this.maxDate = "";
+    this.defaultValue = "";
+    this.format = "YYYY-MM-DD";
+  }
+
+  getHtmlElement() {
+    const container = document.createElement("div");
+    container.classList.add("formBuilder_input_container");
+
+    if (this.withLabel) {
+      const label = document.createElement("label");
+      label.textContent = this.label;
+      container.appendChild(label);
+    }
+
+    const input = document.createElement("input");
+    input.type = "date";
+    input.id = this.id;
+    input.name = this.id;
+    input.required = this.required;
+    input.disabled = this.disabled;
+    input.value = this.defaultValue;
+    input.min = this.minDate;
+    input.max = this.maxDate;
+    input.className = this.customClass;
+
+    if (this.validationMessage) {
+      input.setCustomValidity(this.validationMessage);
+    }
+
+    container.appendChild(input);
+    return container;
+  }
+
+  toggleWithLabel(fn) {
+    this.withLabel = !this.withLabel;
+    if (fn) {
+      fn();
+    }
+  }
+
+  changeCurrLabel(newLabel) {
+    this.label = newLabel;
+  }
+
+  getConfigBodyElement(container, renderTree) {
+    // Label
+    const labelContainer = this.createConfigGroup("Label");
+
+    // Label Checkbox
+    const labelCheckbox = this.createCheckbox(this.withLabel, "Show Label");
+    labelCheckbox.onchange = (e) => {
+      this.withLabel = e.target.checked;
+      renderTree();
+    };
+    labelContainer.appendChild(labelCheckbox);
+
+    // Label Text Input
+    const labelTextInput = this.createTextInput(this.label);
+    labelTextInput.placeholder = "Enter label text";
+    labelTextInput.onchange = (e) => {
+      this.label = e.target.value;
+      renderTree();
+    };
+    labelContainer.appendChild(labelTextInput);
+
+    container.appendChild(labelContainer);
+
+    // All Checkboxes Group
+    const checkboxesGroup = this.createConfigGroup("Options");
+    checkboxesGroup.style.display = "flex";
+    checkboxesGroup.style.flexDirection = "column";
+    checkboxesGroup.style.gap = "12px";
+
+    // Required
+    const requiredCheckbox = this.createCheckbox(
+      this.required,
+      "Required field"
+    );
+    requiredCheckbox.onchange = (e) => {
+      this.required = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(requiredCheckbox);
+
+    // Disabled
+    const disabledCheckbox = this.createCheckbox(this.disabled, "Disabled");
+    disabledCheckbox.onchange = (e) => {
+      this.disabled = e.target.checked;
+      renderTree();
+    };
+    checkboxesGroup.appendChild(disabledCheckbox);
+
+    container.appendChild(checkboxesGroup);
+
+    // Date Range
+    const dateRangeContainer = this.createConfigGroup("Date Range");
+    const minDateInput = document.createElement("input");
+    minDateInput.type = "date";
+    minDateInput.value = this.minDate;
+    minDateInput.style.marginBottom = "8px";
+    minDateInput.onchange = (e) => {
+      this.minDate = e.target.value;
+      renderTree();
+    };
+
+    const maxDateInput = document.createElement("input");
+    maxDateInput.type = "date";
+    maxDateInput.value = this.maxDate;
+    maxDateInput.onchange = (e) => {
+      this.maxDate = e.target.value;
+      renderTree();
+    };
+
+    const minDateLabel = document.createElement("label");
+    minDateLabel.textContent = "Minimum Date:";
+    minDateLabel.style.display = "block";
+    minDateLabel.style.marginBottom = "4px";
+
+    const maxDateLabel = document.createElement("label");
+    maxDateLabel.textContent = "Maximum Date:";
+    maxDateLabel.style.display = "block";
+    maxDateLabel.style.marginBottom = "4px";
+
+    dateRangeContainer.appendChild(minDateLabel);
+    dateRangeContainer.appendChild(minDateInput);
+    dateRangeContainer.appendChild(maxDateLabel);
+    dateRangeContainer.appendChild(maxDateInput);
+    container.appendChild(dateRangeContainer);
+
+    // Default Value
+    const defaultValueContainer = this.createConfigGroup("Default Value");
+    const defaultValueInput = document.createElement("input");
+    defaultValueInput.type = "date";
+    defaultValueInput.value = this.defaultValue;
+    defaultValueInput.onchange = (e) => {
+      this.defaultValue = e.target.value;
+      renderTree();
+    };
+    defaultValueContainer.appendChild(defaultValueInput);
+    container.appendChild(defaultValueContainer);
+
+    // Custom Class
+    const classContainer = this.createConfigGroup("Custom Class");
+    const classInput = this.createTextInput(this.customClass);
+    classInput.onchange = (e) => {
+      this.customClass = e.target.value;
+      renderTree();
+    };
+    classContainer.appendChild(classInput);
+    container.appendChild(classContainer);
+
+    // Validation Message
+    const validationContainer = this.createConfigGroup("Validation Message");
+    const validationInput = this.createTextInput(this.validationMessage);
+    validationInput.onchange = (e) => {
+      this.validationMessage = e.target.value;
+      renderTree();
+    };
+    validationContainer.appendChild(validationInput);
+    container.appendChild(validationContainer);
+  }
 }
 
 class Tree {
   /**
+   * if isEdit True this will have edit section
+   * @constructor
    * @param {HTMLElement} container
+   * @param {Boolean} isEdit
    */
   constructor(container, isEdit) {
     if (!(container instanceof Element)) {
@@ -391,9 +1366,13 @@ class Tree {
     }
     this.isEdit = isEdit || false;
     const formElement = document.createElement("form");
+    formElement.classList.add("formBuilder_form");
     formElement.id = container.id + "Form";
 
+    container.classList.add("FormBuilderRoot");
+
     this.root = container;
+    this.initRoot();
     container.append(formElement);
     this.form = formElement;
     this.formId = formElement.id;
@@ -410,17 +1389,69 @@ class Tree {
       children: [],
     };
 
-    this.initRoot();
-    this.initForm();
     this.addEditSection();
-
-    const firstSection = this.getNewSection("First");
-    this.tree.children.push(firstSection);
-    const secSection = this.getNewSection("Sec");
-    this.tree.children.push(secSection);
     this.renderTree();
+  }
 
-    console.log(this.getNodeWithId(this.tree, "First"));
+  NodeTypes = {
+    section: "section",
+    input: "input",
+  };
+
+  initRoot() {
+    this.root.style.position = "relative";
+
+    const buttonsContainer = document.createElement("div");
+
+    buttonsContainer.classList.add("formBuilder_buttonsContainer");
+
+    const printButton = document.createElement("button");
+    printButton.classList.add("formBuilder_button");
+    printButton.innerText = "Print Form";
+
+    printButton.onmouseover = () => {
+      printButton.style.backgroundColor = "#45a049";
+    };
+    printButton.onmouseout = () => {
+      printButton.style.backgroundColor = "#4CAF50";
+    };
+
+    printButton.onclick = () => {
+      const editorToggle = this.root.querySelector(
+        ".formBuilder_button_editForm"
+      );
+
+      if (this.isEdit && editorToggle) {
+        editorToggle.click(); // Toggle edit mode off if it's on
+      }
+      this.printForm();
+    };
+
+    buttonsContainer.appendChild(printButton);
+    if (this.isEdit) {
+      const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><g fill="none" stroke="#000000" stroke-width="1.5"><path d="M3.275 15.296C2.425 14.192 2 13.639 2 12c0-1.64.425-2.191 1.275-3.296C4.972 6.5 7.818 4 12 4s7.028 2.5 8.725 4.704C21.575 9.81 22 10.361 22 12c0 1.64-.425 2.191-1.275 3.296C19.028 17.5 16.182 20 12 20s-7.028-2.5-8.725-4.704Z"/><path d="M15 12a3 3 0 1 1-6 0a3 3 0 0 1 6 0Z"/></g></svg>`;
+      const closedEyesSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><!-- Icon from Solar by 480 Design - https://creativecommons.org/licenses/by/4.0/ --><path fill="#000000" fill-rule="evenodd" d="M1.606 6.08a1 1 0 0 1 1.313.526L2 7l.92-.394v-.001l.003.009l.021.045l.094.194c.086.172.219.424.4.729a13.4 13.4 0 0 0 1.67 2.237a12 12 0 0 0 .59.592C7.18 11.8 9.251 13 12 13a8.7 8.7 0 0 0 3.22-.602c1.227-.483 2.254-1.21 3.096-1.998a13 13 0 0 0 2.733-3.725l.027-.058l.005-.011a1 1 0 0 1 1.838.788L22 7l.92.394l-.003.005l-.004.008l-.011.026l-.04.087a14 14 0 0 1-.741 1.348a15.4 15.4 0 0 1-1.711 2.256l.797.797a1 1 0 0 1-1.414 1.415l-.84-.84a12 12 0 0 1-1.897 1.256l.782 1.202a1 1 0 1 1-1.676 1.091l-.986-1.514c-.679.208-1.404.355-2.176.424V16.5a1 1 0 0 1-2 0v-1.544c-.775-.07-1.5-.217-2.177-.425l-.985 1.514a1 1 0 0 1-1.676-1.09l.782-1.203c-.7-.37-1.332-.8-1.897-1.257l-.84.84a1 1 0 0 1-1.414-1.414l.797-.797a15.4 15.4 0 0 1-1.87-2.519a14 14 0 0 1-.591-1.107l-.033-.072l-.01-.021l-.002-.007l-.001-.002v-.001C1.08 7.395 1.08 7.394 2 7l-.919.395a1 1 0 0 1 .525-1.314" clip-rule="evenodd"/></svg>`;
+
+      const toggleEditButton = document.createElement("button");
+      toggleEditButton.classList.add("formBuilder_button_editForm");
+      toggleEditButton.innerHTML = eyeSvg;
+
+      toggleEditButton.onclick = () => {
+        if (this.isEdit) {
+          this.isEdit = false;
+          toggleEditButton.innerHTML = closedEyesSvg;
+          this.renderTree();
+        } else {
+          this.isEdit = true;
+          toggleEditButton.innerHTML = eyeSvg;
+          this.renderTree();
+        }
+      };
+
+      buttonsContainer.appendChild(toggleEditButton);
+    }
+
+    this.root.appendChild(buttonsContainer);
 
     // Create config dialog
     const configDialog = document.createElement("dialog");
@@ -430,7 +1461,7 @@ class Tree {
       <div class="formBuilder_configDialog_content">
         <div class="formBuilder_configDialog_header">
           <h3 class="formBuilder_configDialog_title"></h3>
-          <button class="formBuilder_configDialog_close">×</button>
+          <button class="formBuilder_configDialog_close">x</button>
         </div>
         <div class="formBuilder_configDialog_body"></div>
       </div>
@@ -444,75 +1475,6 @@ class Tree {
       () => {
         configDialog.close();
       };
-  }
-
-  NodeTypes = {
-    section: "section",
-    input: "input",
-  };
-
-  initRoot() {
-    this.root.style.position = "relative";
-    // Create a native dialog element for sectionId input
-    const sectionIdDialog = document.createElement("dialog");
-    sectionIdDialog.classList.add("formBuilder_addSectionDialog");
-    sectionIdDialog.id = this.root.id + "sectionIdDialog";
-    sectionIdDialog.innerHTML = `
-      <form method="dialog" style="display:flex;flex-direction:column;gap:1em;">
-        <label for="sectionIdInput">Section ID:</label>
-        <input type="text" id="sectionIdInput" name="sectionId" required>
-        <menu style="display:flex;gap:1em;justify-content:flex-end;">
-          <button id="sectionIdCancelBtn" type="reset">Cancel</button>
-          <button id="sectionIdOkBtn" value="default" type="submit">OK</button>
-        </menu>
-      </form>
-    `;
-
-    this.root.append(sectionIdDialog);
-    const cancelBtn = sectionIdDialog.querySelector("#sectionIdCancelBtn");
-    cancelBtn.addEventListener("click", () => {
-      sectionIdDialog.close();
-    });
-    this.openSectionIdDialog = () => {
-      sectionIdDialog.showModal();
-      sectionIdDialog.querySelector("#sectionIdInput").focus();
-    };
-
-    sectionIdDialog.addEventListener("close", () => {
-      if (sectionIdDialog.returnValue === "default") {
-        const input = sectionIdDialog.querySelector("#sectionIdInput");
-        const sectionId = input.value.trim();
-        if (sectionId) {
-          this.pushToChildren(this.formId, this.getNewSection(sectionId));
-          this.renderTree();
-        }
-        input.value = ""; // reset for next open
-      }
-    });
-
-    // Add SectionButton to root
-    const AddSectionButton = document.createElement("button");
-    AddSectionButton.innerText = "Add New Section";
-    AddSectionButton.style.position = "absolute";
-    AddSectionButton.style.top = "0";
-
-    AddSectionButton.addEventListener("click", () => {
-      this.openSectionIdDialog();
-    });
-
-    this.root.append(AddSectionButton);
-  }
-
-  initForm() {
-    this.form.style.width = "210mm";
-    this.form.style.minHeight = "297mm";
-    this.form.style.padding = "20mm";
-    this.form.style.boxSizing = "border-box";
-    this.form.style.backgroundColor = "white";
-    this.form.style.margin = "20px auto";
-    this.form.style.boxShadow = "0 0 10px rgba(0,0,0,0.1)";
-    this.form.style.border = "1px solid #ddd";
-    this.form.style.position = "relative";
   }
 
   /**
@@ -534,12 +1496,6 @@ class Tree {
     if (!id || typeof id !== "string") {
       throw new Error("Invalid section ID provided.");
     }
-    // const section = {
-    //   id: id,
-    //   type: this.NodeTypes.section,
-    //   attr: attr,
-    //   children: [],
-    // };
     const section = new SectionNode({ id });
     return section;
   }
@@ -823,6 +1779,15 @@ class Tree {
         "formBuilder_sectionEdit_body_currItems_item_container"
       );
 
+      // Add hover effect styles
+      itemDiv.style.transition = "box-shadow 0.3s ease";
+      itemDiv.addEventListener("mouseover", () => {
+        itemDiv.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
+      });
+      itemDiv.addEventListener("mouseout", () => {
+        itemDiv.style.boxShadow = "none";
+      });
+
       // Add remove button
       const removeButton = document.createElement("button");
       removeButton.innerHTML = "×";
@@ -930,6 +1895,9 @@ class Tree {
           child.label = e.target.value;
           this.debounce(this.renderTree(), 100);
         };
+        if (child.withLabel) {
+          labelInput.style.visibility = "visible";
+        }
         bodyEl.appendChild(labelInput);
       } else if (child.type === "text") {
         // Text node config
@@ -1050,6 +2018,156 @@ class Tree {
     };
   }
 
+  getAddSectionButtonElement() {
+    const AddSectionButton = document.createElement("button");
+    AddSectionButton.classList.add("formBuilder_form_addSectionBtn");
+    AddSectionButton.type = "button";
+    AddSectionButton.innerText = "New Section";
+
+    // Create floating menu
+    const floatingMenu = document.createElement("div");
+    floatingMenu.classList.add("formBuilder_form_addSectionBtn_floatingMenu");
+    floatingMenu.style.display = "none";
+
+    // Create input container
+    const inputContainer = document.createElement("div");
+    inputContainer.classList.add(
+      "formBuilder_form_addSectionBtn_inputContainer"
+    );
+
+    const label = document.createElement("label");
+    label.textContent = "Section ID:";
+    label.classList.add("formBuilder_form_addSectionBtn_label");
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Enter section ID";
+    input.classList.add("formBuilder_form_addSectionBtn_input");
+
+    inputContainer.appendChild(label);
+    inputContainer.appendChild(input);
+
+    // Create buttons container
+    const buttonsContainer = document.createElement("div");
+    buttonsContainer.classList.add(
+      "formBuilder_form_addSectionBtn_buttonsContainer"
+    );
+
+    const cancelButton = document.createElement("button");
+    cancelButton.textContent = "Cancel";
+    cancelButton.classList.add("formBuilder_form_addSectionBtn_cancelButton");
+
+    const addButton = document.createElement("button");
+    addButton.textContent = "Add";
+    addButton.classList.add("formBuilder_form_addSectionBtn_addButton");
+
+    buttonsContainer.appendChild(cancelButton);
+    buttonsContainer.appendChild(addButton);
+
+    floatingMenu.appendChild(inputContainer);
+    floatingMenu.appendChild(buttonsContainer);
+
+    // Add hover effect to the button
+    AddSectionButton.addEventListener("mouseover", () => {
+      AddSectionButton.style.backgroundColor = "#45a049";
+    });
+
+    AddSectionButton.addEventListener("mouseout", () => {
+      AddSectionButton.style.backgroundColor = "#4CAF50";
+    });
+
+    // Show/hide floating menu
+    let isMenuVisible = false;
+
+    const showMenu = () => {
+      floatingMenu.style.display = "block";
+      // Position the menu
+      computePosition(AddSectionButton, floatingMenu, {
+        placement: "bottom",
+        middleware: [
+          offset(8), // 8px gap between button and menu
+          flip(), // Flip to top if not enough space below
+          shift({ padding: 8 }), // Shift if too close to viewport edge
+        ],
+      }).then(({ x, y }) => {
+        Object.assign(floatingMenu.style, {
+          left: `${x}px`,
+          top: `${y}px`,
+        });
+      });
+
+      // Trigger animation
+      requestAnimationFrame(() => {
+        floatingMenu.classList.add("visible");
+      });
+      isMenuVisible = true;
+    };
+
+    const hideMenu = () => {
+      floatingMenu.classList.remove("visible");
+      setTimeout(() => {
+        floatingMenu.style.display = "none";
+      }, 200); // Match transition duration
+      isMenuVisible = false;
+    };
+
+    AddSectionButton.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!isMenuVisible) {
+        showMenu();
+        input.focus();
+      } else {
+        hideMenu();
+      }
+    });
+
+    // Handle clicks outside
+    document.addEventListener("click", (e) => {
+      if (
+        isMenuVisible &&
+        !floatingMenu.contains(e.target) &&
+        e.target !== AddSectionButton
+      ) {
+        hideMenu();
+      }
+    });
+
+    // Handle form submission
+    addButton.addEventListener("click", () => {
+      const sectionId = input.value.trim();
+      const node = this.getNodeWithId(this.tree, sectionId);
+      if (node) {
+        alert("Section with this ID already exists.");
+        return;
+      }
+      if (sectionId) {
+        this.pushToChildren(this.formId, this.getNewSection(sectionId));
+        this.renderTree();
+        input.value = "";
+        hideMenu();
+      }
+    });
+
+    cancelButton.addEventListener("click", () => {
+      input.value = "";
+      hideMenu();
+    });
+
+    // Handle Enter key
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addButton.click();
+      } else if (e.key === "Escape") {
+        hideMenu();
+      }
+    });
+
+    this.root.append(floatingMenu);
+    return AddSectionButton;
+  }
+
   renderTree() {
     this.form.innerHTML = "";
     this.printTree("NEW");
@@ -1058,6 +2176,9 @@ class Tree {
         node.getHtmlElement(this.isEdit, () => this.openEditSection(node.id))
       );
     });
+    if (this.isEdit) {
+      this.form.append(this.getAddSectionButtonElement());
+    }
   }
 
   /**
@@ -1077,345 +2198,16 @@ class Tree {
     body.innerHTML = "";
 
     // Add type-specific configuration
-    if (node instanceof InputNode) {
-      this.addInputConfig(body, node);
-    } else if (node instanceof TextNode) {
-      this.addTextConfig(body, node);
-    } else if (node instanceof CheckboxNode) {
-      this.addCheckboxConfig(body, node);
-    }
+    node.getConfigBodyElement(body, () => this.renderTree());
 
     dialog.showModal();
   }
-
-  /**
-   * @param {HTMLElement} container
-   * @param {InputNode} node
-   */
-  addInputConfig(container, node) {
-    // Input Type
-    const inputTypeContainer = this.createConfigGroup("Input Type");
-    const typeSelect = this.createSelect(
-      ["text", "number", "email", "password", "tel", "url"],
-      node.inputType
-    );
-    typeSelect.onchange = (e) => {
-      node.inputType = e.target.value;
-      this.renderTree();
-    };
-    inputTypeContainer.appendChild(typeSelect);
-    container.appendChild(inputTypeContainer);
-
-    // Placeholder
-    const placeholderContainer = this.createConfigGroup("Placeholder");
-    const placeholderInput = this.createTextInput(node.placeholder);
-    placeholderInput.onchange = (e) => {
-      node.placeholder = e.target.value;
-      this.renderTree();
-    };
-    placeholderContainer.appendChild(placeholderInput);
-    container.appendChild(placeholderContainer);
-
-    // Required
-    const requiredContainer = this.createConfigGroup("Required");
-    const requiredCheckbox = this.createCheckbox(node.required);
-    requiredCheckbox.onchange = (e) => {
-      node.required = e.target.checked;
-      this.renderTree();
-    };
-    requiredContainer.appendChild(requiredCheckbox);
-    container.appendChild(requiredContainer);
-
-    // Min/Max Length
-    const lengthContainer = this.createConfigGroup("Length Constraints");
-    const minLengthInput = this.createNumberInput(node.minLength, "Min Length");
-    const maxLengthInput = this.createNumberInput(node.maxLength, "Max Length");
-    minLengthInput.onchange = (e) => {
-      node.minLength = parseInt(e.target.value) || 0;
-      this.renderTree();
-    };
-    maxLengthInput.onchange = (e) => {
-      node.maxLength = parseInt(e.target.value) || 0;
-      this.renderTree();
-    };
-    lengthContainer.appendChild(minLengthInput);
-    lengthContainer.appendChild(maxLengthInput);
-    container.appendChild(lengthContainer);
-
-    // Pattern
-    const patternContainer = this.createConfigGroup("Validation Pattern");
-    const patternInput = this.createTextInput(node.pattern);
-    patternInput.placeholder = "Enter regex pattern";
-    patternInput.onchange = (e) => {
-      node.pattern = e.target.value;
-      this.renderTree();
-    };
-    patternContainer.appendChild(patternInput);
-    container.appendChild(patternContainer);
-
-    // Default Value
-    const defaultValueContainer = this.createConfigGroup("Default Value");
-    const defaultValueInput = this.createTextInput(node.defaultValue);
-    defaultValueInput.onchange = (e) => {
-      node.defaultValue = e.target.value;
-      this.renderTree();
-    };
-    defaultValueContainer.appendChild(defaultValueInput);
-    container.appendChild(defaultValueContainer);
-
-    // Read Only
-    const readOnlyContainer = this.createConfigGroup("Read Only");
-    const readOnlyCheckbox = this.createCheckbox(node.readOnly);
-    readOnlyCheckbox.onchange = (e) => {
-      node.readOnly = e.target.checked;
-      this.renderTree();
-    };
-    readOnlyContainer.appendChild(readOnlyCheckbox);
-    container.appendChild(readOnlyContainer);
-
-    // Disabled
-    const disabledContainer = this.createConfigGroup("Disabled");
-    const disabledCheckbox = this.createCheckbox(node.disabled);
-    disabledCheckbox.onchange = (e) => {
-      node.disabled = e.target.checked;
-      this.renderTree();
-    };
-    disabledContainer.appendChild(disabledCheckbox);
-    container.appendChild(disabledContainer);
-
-    // Validation Message
-    const validationContainer = this.createConfigGroup("Validation Message");
-    const validationInput = this.createTextInput(node.validationMessage);
-    validationInput.onchange = (e) => {
-      node.validationMessage = e.target.value;
-      this.renderTree();
-    };
-    validationContainer.appendChild(validationInput);
-    container.appendChild(validationContainer);
-  }
-
-  /**
-   * @param {HTMLElement} container
-   * @param {TextNode} node
-   */
-  addTextConfig(container, node) {
-    // Text Style
-    const styleContainer = this.createConfigGroup("Text Style");
-    const styleSelect = this.createSelect(
-      ["normal", "bold", "italic", "underline"],
-      node.textStyle
-    );
-    styleSelect.onchange = (e) => {
-      node.textStyle = e.target.value;
-      this.renderTree();
-    };
-    styleContainer.appendChild(styleSelect);
-    container.appendChild(styleContainer);
-
-    // Font Size
-    const fontSizeContainer = this.createConfigGroup("Font Size");
-    const fontSizeInput = this.createTextInput(node.fontSize);
-    fontSizeInput.onchange = (e) => {
-      node.fontSize = e.target.value;
-      this.renderTree();
-    };
-    fontSizeContainer.appendChild(fontSizeInput);
-    container.appendChild(fontSizeContainer);
-
-    // Text Color
-    const colorContainer = this.createConfigGroup("Text Color");
-    const colorInput = this.createColorInput(node.textColor);
-    colorInput.onchange = (e) => {
-      node.textColor = e.target.value;
-      this.renderTree();
-    };
-    colorContainer.appendChild(colorInput);
-    container.appendChild(colorContainer);
-
-    // Text Align
-    const alignContainer = this.createConfigGroup("Text Alignment");
-    const alignSelect = this.createSelect(
-      ["left", "center", "right"],
-      node.textAlign
-    );
-    alignSelect.onchange = (e) => {
-      node.textAlign = e.target.value;
-      this.renderTree();
-    };
-    alignContainer.appendChild(alignSelect);
-    container.appendChild(alignContainer);
-
-    // Line Height
-    const lineHeightContainer = this.createConfigGroup("Line Height");
-    const lineHeightInput = this.createTextInput(node.lineHeight);
-    lineHeightInput.onchange = (e) => {
-      node.lineHeight = e.target.value;
-      this.renderTree();
-    };
-    lineHeightContainer.appendChild(lineHeightInput);
-    container.appendChild(lineHeightContainer);
-
-    // Margin
-    const marginContainer = this.createConfigGroup("Margin");
-    const marginInput = this.createTextInput(node.margin);
-    marginInput.onchange = (e) => {
-      node.margin = e.target.value;
-      this.renderTree();
-    };
-    marginContainer.appendChild(marginInput);
-    container.appendChild(marginContainer);
-
-    // Padding
-    const paddingContainer = this.createConfigGroup("Padding");
-    const paddingInput = this.createTextInput(node.padding);
-    paddingInput.onchange = (e) => {
-      node.padding = e.target.value;
-      this.renderTree();
-    };
-    paddingContainer.appendChild(paddingInput);
-    container.appendChild(paddingContainer);
-
-    // Custom Class
-    const classContainer = this.createConfigGroup("Custom Class");
-    const classInput = this.createTextInput(node.customClass);
-    classInput.onchange = (e) => {
-      node.customClass = e.target.value;
-      this.renderTree();
-    };
-    classContainer.appendChild(classInput);
-    container.appendChild(classContainer);
-
-    // Text Transform
-    const transformContainer = this.createConfigGroup("Text Transform");
-    const transformSelect = this.createSelect(
-      ["none", "uppercase", "lowercase", "capitalize"],
-      node.textTransform
-    );
-    transformSelect.onchange = (e) => {
-      node.textTransform = e.target.value;
-      this.renderTree();
-    };
-    transformContainer.appendChild(transformSelect);
-    container.appendChild(transformContainer);
-  }
-
-  /**
-   * @param {HTMLElement} container
-   * @param {CheckboxNode} node
-   */
-  addCheckboxConfig(container, node) {
-    // Required
-    const requiredContainer = this.createConfigGroup("Required");
-    const requiredCheckbox = this.createCheckbox(node.required);
-    requiredCheckbox.onchange = (e) => {
-      node.required = e.target.checked;
-      this.renderTree();
-    };
-    requiredContainer.appendChild(requiredCheckbox);
-    container.appendChild(requiredContainer);
-
-    // Disabled
-    const disabledContainer = this.createConfigGroup("Disabled");
-    const disabledCheckbox = this.createCheckbox(node.disabled);
-    disabledCheckbox.onchange = (e) => {
-      node.disabled = e.target.checked;
-      this.renderTree();
-    };
-    disabledContainer.appendChild(disabledCheckbox);
-    container.appendChild(disabledContainer);
-
-    // Custom Class
-    const classContainer = this.createConfigGroup("Custom Class");
-    const classInput = this.createTextInput(node.customClass);
-    classInput.onchange = (e) => {
-      node.customClass = e.target.value;
-      this.renderTree();
-    };
-    classContainer.appendChild(classInput);
-    container.appendChild(classContainer);
-
-    // Group Name
-    const groupContainer = this.createConfigGroup("Group Name");
-    const groupInput = this.createTextInput(node.groupName);
-    groupInput.onchange = (e) => {
-      node.groupName = e.target.value;
-      this.renderTree();
-    };
-    groupContainer.appendChild(groupInput);
-    container.appendChild(groupContainer);
-
-    // Indeterminate
-    const indeterminateContainer = this.createConfigGroup("Indeterminate");
-    const indeterminateCheckbox = this.createCheckbox(node.indeterminate);
-    indeterminateCheckbox.onchange = (e) => {
-      node.indeterminate = e.target.checked;
-      this.renderTree();
-    };
-    indeterminateContainer.appendChild(indeterminateCheckbox);
-    container.appendChild(indeterminateContainer);
-
-    // Validation Message
-    const validationContainer = this.createConfigGroup("Validation Message");
-    const validationInput = this.createTextInput(node.validationMessage);
-    validationInput.onchange = (e) => {
-      node.validationMessage = e.target.value;
-      this.renderTree();
-    };
-    validationContainer.appendChild(validationInput);
-    container.appendChild(validationContainer);
-  }
-
-  // Helper methods for creating config UI elements
-  createConfigGroup(label) {
-    const container = document.createElement("div");
-    container.classList.add("formBuilder_configDialog_group");
-
-    const labelEl = document.createElement("label");
-    labelEl.textContent = label;
-    container.appendChild(labelEl);
-
-    return container;
-  }
-
-  createSelect(options, value) {
-    const select = document.createElement("select");
-    options.forEach((option) => {
-      const optionEl = document.createElement("option");
-      optionEl.value = option;
-      optionEl.textContent = option;
-      select.appendChild(optionEl);
+  printForm() {
+    printJS({
+      printable: this.formId,
+      type: "html",
+      targetStyles: ["*"],
     });
-    select.value = value;
-    return select;
-  }
-
-  createTextInput(value) {
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = value || "";
-    return input;
-  }
-
-  createNumberInput(value, placeholder) {
-    const input = document.createElement("input");
-    input.type = "number";
-    input.value = value || "";
-    input.placeholder = placeholder;
-    return input;
-  }
-
-  createColorInput(value) {
-    const input = document.createElement("input");
-    input.type = "color";
-    input.value = value || "#000000";
-    return input;
-  }
-
-  createCheckbox(checked) {
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = checked || false;
-    return checkbox;
   }
 }
 
@@ -1439,3 +2231,4 @@ window.FormTree = Tree;
  *
  *
  */
+// TODO Make every node to handle the render config Body instead of handling it on the section !!!!

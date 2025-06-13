@@ -5,17 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite App</title>
+    <script src="https://cdn.jsdelivr.net/npm/@floating-ui/core@1.7.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.7.1"></script>
     <script type="module" src="/src/main2.js"></script>
+    <script type="module" src="/src/util/print.min.js"></script>
     <link rel="stylesheet" href="./src/style.css" />
     <link rel="stylesheet" href="./src/formBuilder.css" />
+    <link rel="stylesheet" href="./src/util/print.min.css" />
   </head>
   <body>
     <div id="app"></div>
     <div id="formContainer"></div>
     <script type="module">
       const formContainer = document.getElementById("formContainer");
-      const tree = new FormTree(formContainer, true);
-      tree.printTree("Tree => ");
+      const formTree = new FormTree(formContainer, true);
+      formTree.printTree("Tree => ");
     </script>
   </body>
 </html>
